@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MON1TOR — Every machine, one dashboard. Self-hosted.</title>
+<meta name="description" content="Self-hosted infrastructure monitoring for your whole fleet: live CPU/RAM/disk/network and container metrics, uptime, SSL expiry, cron heartbeats and public status pages — plus forecasting that estimates how many days until a disk fills. Your monitoring data never leaves your infra. One-time €49 (Pro €99). Runs on Docker.">
+<link rel="canonical" href="https://mon1tor.perfectparadox.co.uk/">
+<meta property="og:title" content="MON1TOR — Every machine, one dashboard">
+<meta property="og:description" content="Self-hosted monitoring: metrics, uptime, SSL, heartbeats, status pages and days-until-full forecasting in one dashboard you run yourself. One-time, from €49.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mon1tor.perfectparadox.co.uk/">
+<meta property="og:site_name" content="Perfect Paradox">
+<meta property="og:image" content="https://mon1tor.perfectparadox.co.uk/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MON1TOR — Every machine, one dashboard">
+<meta name="twitter:description" content="Self-hosted monitoring: metrics, uptime, SSL, heartbeats, status pages and forecasting in one dashboard. One-time, from €49.">
+<meta name="twitter:image" content="https://mon1tor.perfectparadox.co.uk/og.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"MON1TOR","applicationCategory":"DeveloperApplication","operatingSystem":"Docker (Linux, macOS, NAS, VPS, cloud)","url":"https://mon1tor.perfectparadox.co.uk/","description":"Self-hosted infrastructure monitoring. Real-time CPU/RAM/disk/network/load and container metrics, uptime and SSL checks, cron heartbeats, public status pages and resource-exhaustion forecasting — in one dashboard you run on your own infrastructure.","featureList":["Real-time CPU, RAM, disk, network and load metrics","Container insights: OOM risk, restarts, missing memory limits","Health score and trend-based anomaly detection","Resource-exhaustion forecasting (days until disk/RAM full)","Uptime and SSL/TLS certificate expiry monitoring","Cron and background-job heartbeat monitoring","Public status pages","Multi-channel alerts (Telegram, Slack, Discord, email, PagerDuty and 130+ more)","Self-hosted on your own Docker — your monitoring data never leaves your infrastructure"],"offers":{"@type":"AggregateOffer","priceCurrency":"EUR","lowPrice":"49","highPrice":"99","offerCount":"2"},"publisher":{"@type":"Organization","name":"Perfect Paradox Ltd"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0E0E0E; --bg:#131313; --vessel:#1b211e; --high:#353535;
+  --ink:#E5E2E1; --white:#FFFFFF; --mut:#8a938e; --line:rgba(71,71,71,.4); --line-soft:rgba(71,71,71,.2);
+  --br:#10B981; --up:#34D399; --warn:#A78BFA; --down:#E5484D; --net:#85B7EB;
+}
+*{margin:0;padding:0;box-sizing:border-box;border-radius:0}
+html{scroll-behavior:smooth}
+body{background:var(--void);color:var(--ink);font-family:'Inter',-apple-system,sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(16,185,129,.22);color:#fff}
+.mono{font-family:'JetBrains Mono',monospace}
+a{color:inherit}
+.bgvideo{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none}
+.bgtint{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(120% 90% at 70% 10%, rgba(16,185,129,.12), transparent 55%), rgba(14,14,14,.55)}
+.scan{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.35;background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.25) 2px 3px)}
+.gridbg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(16,185,129,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.05) 1px,transparent 1px);background-size:46px 46px;-webkit-mask-image:radial-gradient(120% 90% at 78% 8%, #000, transparent 72%);mask-image:radial-gradient(120% 90% at 78% 8%, #000, transparent 72%)}
+.rail{position:fixed;top:0;bottom:0;width:38px;display:flex;align-items:center;justify-content:center;z-index:40;pointer-events:none}
+.rail.l{left:0}.rail.r{right:0}
+.rail span{writing-mode:vertical-rl;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4em;text-transform:uppercase;color:var(--mut);opacity:.6}
+.rail.l span{transform:rotate(180deg)}
+.page{position:relative;z-index:2}
+.wrap{max-width:1000px;margin:0 auto;padding:0 40px}
+
+nav{position:fixed;top:0;left:0;right:0;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 40px;z-index:50;background:rgba(14,14,14,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft)}
+nav .brand{font-family:'Space Grotesk';font-weight:600;font-size:18px;letter-spacing:.04em;display:flex;align-items:center;gap:9px}
+nav .brand svg{width:18px;height:18px}
+nav .links{display:flex;gap:26px}
+nav .links a{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);text-decoration:none;transition:.3s}
+nav .links a:hover{color:var(--white)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:'Space Grotesk';font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:11px 20px;background:var(--br);color:#04130d;text-decoration:none;border:1px solid var(--br);cursor:pointer;transition:all .3s cubic-bezier(.22,1,.36,1)}
+.btn:hover{background:transparent;color:var(--up);border-color:var(--up)}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--mut)}
+.btn-ghost:hover{border-color:var(--white);color:var(--white)}
+.sec-label{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--mut);margin-bottom:18px}
+
+.hero{padding:150px 0 80px;text-align:left}
+.tag{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono';font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);border:1px solid var(--line);padding:6px 12px;margin-bottom:30px}
+.tag b{color:var(--ink);font-weight:500}
+h1{font-family:'Space Grotesk';font-weight:600;font-size:clamp(44px,7vw,82px);line-height:1.0;letter-spacing:-.02em;color:var(--white);margin-bottom:24px}
+h1 .s{color:var(--mut)}
+.lede{font-size:19px;line-height:1.6;color:var(--ink);max-width:620px;margin:0 0 34px}
+.cta-row{display:flex;gap:14px;align-items:center;justify-content:flex-start;flex-wrap:wrap}
+.cta-note{font-family:'JetBrains Mono';font-size:11px;color:var(--mut);margin-top:18px}
+
+.win{border:1px solid var(--line);background:var(--bg);margin:0 auto;max-width:760px;text-align:left;box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.winbar{height:38px;border-bottom:1px solid var(--line-soft);background:var(--void);display:flex;align-items:center;gap:7px;padding:0 14px}
+.dot3{width:11px;height:11px;background:#474747}
+.wintitle{flex:1;text-align:center;font-family:'JetBrains Mono';font-size:11px;color:var(--mut);letter-spacing:.1em}
+.caret{display:inline-block;width:8px;height:15px;background:var(--up);margin-left:2px;animation:blink 1s steps(1) infinite;vertical-align:-2px}
+@keyframes blink{50%{opacity:0}}
+.fade{opacity:0}
+.play .fade{animation:fade .55s forwards}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.demo-acc{border-left:2px solid var(--high);padding-left:16px}
+
+/* fleet rows (hero + demos) */
+.frow{display:flex;align-items:center;gap:13px;padding:11px 16px;border-bottom:1px solid var(--line-soft)}
+.frow:last-child{border-bottom:0}
+.sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px currentColor}
+.sdot.up{background:var(--up);color:var(--up)}.sdot.warn{background:var(--warn);color:var(--warn)}.sdot.down{background:var(--down);color:var(--down)}
+.fnm{font-size:13px;color:#e9efeb;width:120px;flex-shrink:0}
+.fnm small{display:block;color:#6b736e;font-size:10px;font-family:'JetBrains Mono'}
+.fbars{flex:1;display:flex;gap:14px;align-items:center}
+.fm{flex:1}.fm .lab{font-family:'JetBrains Mono';font-size:10px;color:#6b736e;letter-spacing:.06em;margin-bottom:4px}
+.bar{height:6px;background:#222a26;overflow:hidden}.bar i{display:block;height:100%;background:var(--up)}.bar i.hi{background:var(--warn)}.bar i.crit{background:var(--down)}
+.fnote{padding:11px 16px;font-family:'JetBrains Mono';font-size:11.5px;display:flex;align-items:center;gap:9px}
+.fnote.alert{background:rgba(229,72,77,.09);border-top:1px solid rgba(229,72,77,.2);color:#f3a3a6}
+.fnote.fc{background:rgba(167,139,250,.08);color:#c4b5fd}
+.fnote.ok{background:rgba(16,185,129,.08);color:var(--up)}
+
+section{padding:90px 0;border-top:1px solid var(--line-soft);background:var(--void);position:relative}
+h2{font-family:'Space Grotesk';font-weight:600;font-size:clamp(28px,4vw,42px);line-height:1.08;letter-spacing:-.02em;color:var(--white);margin-bottom:18px}
+.section-lede{font-size:17px;line-height:1.6;color:var(--mut);max-width:640px}
+.center{text-align:center}.center .section-lede{margin:0 auto}
+
+.demos{display:flex;flex-direction:column;gap:64px;margin-top:54px}
+.demo{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+.demo.rev .demo-txt{order:2}
+.demo-n{font-family:'JetBrains Mono';font-size:12px;color:var(--mut);margin-bottom:12px}
+.demo h3{font-family:'Space Grotesk';font-weight:500;font-size:24px;color:var(--white);margin-bottom:12px}
+.demo p{font-size:15px;line-height:1.6;color:var(--mut)}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line-soft);margin-top:48px;border:1px solid var(--line-soft)}
+.cell{background:var(--bg);padding:30px 26px}
+.cell .ic{font-family:'JetBrains Mono';font-size:12px;color:var(--mut);margin-bottom:16px}
+.cell h3{font-family:'Space Grotesk';font-weight:500;font-size:18px;color:var(--white);margin-bottom:9px}
+.cell p{font-size:14px;line-height:1.6;color:var(--mut)}
+.cell .pp{font-family:'JetBrains Mono';font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--br);border:1px solid rgba(16,185,129,.4);padding:2px 6px;margin-left:7px;vertical-align:1px}
+
+.cmp{margin-top:44px;border:1px solid var(--line-soft);overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:620px}
+th,td{padding:14px 18px;text-align:left;border-bottom:1px solid var(--line-soft)}
+th{font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:500}
+td.app{font-weight:500;color:var(--white)}
+.yes{color:var(--up)}.no{color:#5a5a5a}.part{color:var(--warn)}
+tr.us{background:rgba(16,185,129,.08)}
+tr.us td.app{color:var(--br)}
+
+.prices{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:48px;max-width:760px}
+.price{border:1px solid var(--line);background:var(--bg);padding:32px 28px;display:flex;flex-direction:column}
+.price.pro{border:2px solid var(--br)}
+.price .pn{font-family:'Space Grotesk';font-weight:600;font-size:19px;color:var(--white);margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.price .amt{font-family:'Space Grotesk';font-size:40px;color:var(--white);margin:12px 0 0}
+.price .amt small{font-family:'JetBrains Mono';font-size:14px;color:var(--mut)}
+.price .per{font-family:'JetBrains Mono';font-size:12px;color:var(--mut);margin:4px 0 22px}
+.price ul{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;flex:1}
+.price li{font-size:14px;color:var(--ink);display:flex;gap:9px;line-height:1.45}.price li::before{content:"›";color:var(--br);font-family:'JetBrains Mono'}
+.price li.h{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}.price li.h::before{content:""}
+.pill{font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:.1em;padding:3px 8px;border:1px solid rgba(16,185,129,.4);color:var(--br)}
+
+.faq-item{border-bottom:1px solid var(--line-soft);padding:22px 0}
+.faq-item h4{font-family:'Space Grotesk';font-weight:500;font-size:17px;color:var(--white);margin-bottom:8px}
+.faq-item p{font-size:14.5px;line-height:1.6;color:var(--mut)}
+
+footer{padding:46px 0;border-top:1px solid var(--line-soft);font-size:12px;color:var(--mut)}
+footer .fr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+footer a{color:var(--mut);text-decoration:none}footer a:hover{color:var(--white)}
+.nm{font-family:'JetBrains Mono';font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.ds{font-size:12px;color:var(--mut);text-align:center}
+
+@media(max-width:820px){
+  nav .links{display:none}
+  .demo,.demo.rev .demo-txt{grid-template-columns:1fr;order:unset}
+  .grid,.prices{grid-template-columns:1fr}
+  .fnm{width:96px}.fbars{gap:9px}
+}
+</style>
+<script defer data-domain="mon1tor.perfectparadox.co.uk" src="https://analytics.dchv.co.uk/js/script.js"></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="mask-icon" href="/mask-icon.svg" color="#10B981">
+</head>
+<body>
+<canvas class="bgvideo" id="bg" aria-hidden="true"></canvas>
+<div class="gridbg" aria-hidden="true"></div>
+<div class="bgtint" aria-hidden="true"></div>
+<div class="scan" aria-hidden="true"></div>
+<div class="rail l"><span>Perfect Paradox · NI739317</span></div>
+<div class="rail r"><span>Self-hosted · Docker · Your data</span></div>
+
+<div class="page">
+<nav>
+  <div class="brand"><svg viewBox="0 0 24 24" role="img" aria-label="MON1TOR"><path d="M2 13h4l2-7 4 14 3-9 2 2h5" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>MON1TOR</div>
+  <div class="links">
+    <a href="#work">See it work</a>
+    <a href="#features">Features</a>
+    <a href="#compare">Compare</a>
+    <a href="#pricing">Pricing</a>
+  </div>
+  <a class="btn" href="#pricing">Get MON1TOR</a>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="tag"><span style="width:6px;height:6px;background:#10B981;display:inline-block"></span> Self-hosted · <b>Your monitoring data never leaves</b> · One-time, from €49</div>
+    <h1>Every machine.<br><span class="s">One dashboard.</span></h1>
+    <p class="lede">Not another cloud agent phoning home. One self-hosted dashboard for your whole fleet — metrics, containers, uptime, SSL and cron heartbeats — that <strong style="color:var(--white);font-weight:500">estimates a disk will fill in ~9 days</strong> so you act before it does. Runs on your own Docker.</p>
+    <div class="cta-row">
+      <a class="btn" href="#pricing">Get MON1TOR — from €49</a>
+      <a class="btn btn-ghost" href="#pricing">See pricing</a>
+    </div>
+    <p class="cta-note">One-time purchase · €49 Base / €99 Pro · one flat price, any number of machines · macOS · Linux · NAS · VPS</p>
+
+    <div class="win" style="margin-top:56px">
+      <div class="winbar"><span class="dot3"></span><span class="dot3"></span><span class="dot3"></span><span class="wintitle">MON1TOR — fleet · health 94/100 · 6 online</span></div>
+      <div class="frow"><span class="sdot up"></span><span class="fnm">nas-ugreen<small>192.168.1.225</small></span><div class="fbars"><div class="fm"><div class="lab">CPU 12%</div><div class="bar"><i style="width:12%"></i></div></div><div class="fm"><div class="lab">RAM 24%</div><div class="bar"><i style="width:24%"></i></div></div><div class="fm"><div class="lab">DISK 36%</div><div class="bar"><i style="width:36%"></i></div></div></div></div>
+      <div class="frow"><span class="sdot up"></span><span class="fnm">vps-hostinger<small>168.231.112.57</small></span><div class="fbars"><div class="fm"><div class="lab">CPU 41%</div><div class="bar"><i style="width:41%"></i></div></div><div class="fm"><div class="lab">RAM 63%</div><div class="bar"><i style="width:63%"></i></div></div><div class="fm"><div class="lab">DISK 33%</div><div class="bar"><i style="width:33%"></i></div></div></div></div>
+      <div class="frow"><span class="sdot warn"></span><span class="fnm">vm101-gpu<small>192.168.1.31</small></span><div class="fbars"><div class="fm"><div class="lab">CPU 8%</div><div class="bar"><i style="width:8%"></i></div></div><div class="fm"><div class="lab">RAM 84%</div><div class="bar"><i class="hi" style="width:84%"></i></div></div><div class="fm"><div class="lab">DISK 52%</div><div class="bar"><i style="width:52%"></i></div></div></div></div>
+      <div class="frow"><span class="sdot down"></span><span class="fnm">build-runner<small>10.0.0.4</small></span><div class="fbars"><div class="fm"><div class="lab">CPU —</div><div class="bar"><i class="crit" style="width:100%"></i></div></div><div class="fm"><div class="lab">RAM —</div><div class="bar"><i class="crit" style="width:100%"></i></div></div><div class="fm"><div class="lab">DISK 91%</div><div class="bar"><i class="crit" style="width:91%"></i></div></div></div></div>
+      <div class="fnote alert"><span>●</span> build-runner DOWN · no heartbeat for 2m · Telegram alert sent</div>
+      <div class="fnote fc"><span>◔</span> Forecast: vm101-gpu disk reaches 100% in ~9 days at current growth</div>
+    </div>
+  </div>
+</header>
+
+<section style="padding:46px 0">
+  <div class="wrap" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-soft);border:1px solid var(--line-soft)">
+    <div style="background:var(--bg);padding:26px 20px;text-align:center"><div style="font-family:'Space Grotesk';font-size:34px;color:var(--white);line-height:1">∞</div><div class="mono" style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.14em;margin-top:8px">Machines · no per-host fee</div></div>
+    <div style="background:var(--bg);padding:26px 20px;text-align:center"><div style="font-family:'Space Grotesk';font-size:34px;color:var(--white);line-height:1">0</div><div class="mono" style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.14em;margin-top:8px">Of your monitoring data leaves</div></div>
+    <div style="background:var(--bg);padding:26px 20px;text-align:center"><div style="font-family:'Space Grotesk';font-size:34px;color:var(--white);line-height:1">6</div><div class="mono" style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.14em;margin-top:8px">Tools in one</div></div>
+    <div style="background:var(--bg);padding:26px 20px;text-align:center"><div style="font-family:'Space Grotesk';font-size:34px;color:var(--white);line-height:1">1</div><div class="mono" style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.14em;margin-top:8px">Command to install</div></div>
+  </div>
+</section>
+
+<section id="work">
+  <div class="wrap">
+    <div class="sec-label">// See it work</div>
+    <h2>Three things free dashboards don't do.</h2>
+    <div class="demos">
+
+      <!-- 1 forecasting -->
+      <div class="demo">
+        <div class="demo-txt demo-acc" style="border-left-color:var(--br)">
+          <div class="demo-n" style="color:var(--br)">01 / Foresight</div>
+          <h3>It sees the problem coming</h3>
+          <p>Most tools tell you the disk is full once it already broke production. MON1TOR reads the trend and warns you days ahead — so the 2am page becomes a calm Tuesday afternoon fix.</p>
+        </div>
+        <div class="win">
+          <div class="winbar"><span class="dot3"></span><span class="dot3"></span><span class="dot3"></span><span class="wintitle">Forecast · vm101-gpu disk</span></div>
+          <div style="padding:20px;display:flex;flex-direction:column;gap:11px">
+            <div class="mono fade" style="animation-delay:.1s;font-size:11px;color:var(--mut)">36% → 52% → 61% &nbsp; trend +2.1%/day</div>
+            <div class="fade" style="animation-delay:.9s"><div class="bar" style="height:8px"><i class="hi" style="width:61%"></i></div></div>
+            <div class="fnote fc fade" style="animation-delay:1.7s;border:1px solid rgba(167,139,250,.25)"><span>◔</span> Disk reaches 100% in <strong style="color:#fff;font-weight:600">~9 days</strong> · alert scheduled<span class="caret"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 heartbeats -->
+      <div class="demo rev">
+        <div class="demo-txt demo-acc" style="border-left-color:var(--warn)">
+          <div class="demo-n" style="color:var(--warn)">02 / Silent failures</div>
+          <h3>It catches the backup that quietly died</h3>
+          <p>Your nightly job pings a URL when it finishes. The day it stops — the cron that broke, the backup you'd only discover when you needed it — MON1TOR tells you the silence happened. Cron and background-job heartbeats.</p>
+        </div>
+        <div class="win">
+          <div class="winbar"><span class="dot3"></span><span class="dot3"></span><span class="dot3"></span><span class="wintitle">Heartbeat · nightly-backup</span></div>
+          <div style="padding:20px;display:flex;flex-direction:column;gap:9px">
+            <div class="mono fade" style="animation-delay:.1s;font-size:11px;color:var(--up)">✓ 02:00 &nbsp; ✓ 02:00 &nbsp; ✓ 02:01 &nbsp; ✓ 02:00</div>
+            <div class="mono fade" style="animation-delay:1s;font-size:11px;color:var(--mut)">expected every 24h · grace 1h</div>
+            <div class="fnote alert fade" style="animation-delay:1.9s;border:1px solid rgba(229,72,77,.25)"><span>●</span> <strong style="color:#fff;font-weight:600">No ping for 26h</strong> — nightly-backup is DOWN<span class="caret"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 status pages -->
+      <div class="demo">
+        <div class="demo-txt demo-acc" style="border-left-color:var(--up)">
+          <div class="demo-n" style="color:var(--up)">03 / Share it</div>
+          <h3>Publish a status page in one toggle</h3>
+          <p>Turn the machines you already monitor into a clean, public status page for your users or your team. One switch, a shareable link — no second tool, no extra cost.</p>
+        </div>
+        <div class="win">
+          <div class="winbar"><span class="dot3"></span><span class="dot3"></span><span class="dot3"></span><span class="wintitle">status.yourco.com</span></div>
+          <div style="padding:24px;display:flex;flex-direction:column;gap:12px">
+            <div class="fade" style="animation-delay:.2s;font-family:'Space Grotesk';font-size:20px;color:#fff;display:flex;align-items:center;gap:10px"><span style="width:11px;height:11px;border-radius:50%;background:var(--up);box-shadow:0 0 10px var(--up)"></span> All systems operational</div>
+            <div class="frow fade" style="animation-delay:.8s;border:1px solid var(--line-soft);padding:11px 14px"><span class="sdot up"></span><span style="font-size:13px;color:#e9efeb">API</span><span class="mono" style="margin-left:auto;font-size:11px;color:var(--up)">99.98% · 30d</span></div>
+            <div class="frow fade" style="animation-delay:1.3s;border:1px solid var(--line-soft);padding:11px 14px"><span class="sdot up"></span><span style="font-size:13px;color:#e9efeb">Web</span><span class="mono" style="margin-left:auto;font-size:11px;color:var(--up)">100% · 30d</span><span class="caret"></span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-label">// What you get</div>
+    <h2>One tool where you ran six.</h2>
+    <div class="grid">
+      <div class="cell"><div class="ic">/ metrics</div><h3>Every host, live</h3><p>Real-time CPU, RAM, disk, network and load for every machine, with a single health score and trend-based anomaly detection.</p></div>
+      <div class="cell"><div class="ic">/ forecasting</div><h3>Days-until-full<span class="pp">Pro</span></h3><p>Resource-exhaustion forecasting reads the recent trend and estimates how many days until a disk or RAM is likely to fill — so you act in time.</p></div>
+      <div class="cell"><div class="ic">/ containers</div><h3>Container insight<span class="pp">Pro</span></h3><p>Which containers have no memory limit, which are at OOM risk, which keep restarting. Findings, not raw stats.</p></div>
+      <div class="cell"><div class="ic">/ uptime</div><h3>Uptime &amp; SSL<span class="pp">Pro</span></h3><p>Watch any endpoint for downtime and get warned weeks ahead before a TLS certificate expires.</p></div>
+      <div class="cell"><div class="ic">/ heartbeats</div><h3>Cron heartbeats<span class="pp">Pro</span></h3><p>Your jobs ping a URL when they run. When one goes quiet, you hear about the silent failure.</p></div>
+      <div class="cell"><div class="ic">/ privacy</div><h3>Stays on your infra</h3><p>No cloud account, no server of ours, no telemetry. Self-hosted on your Docker — your monitoring data never leaves the machine.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="wrap">
+    <div class="sec-label">// vs the rest</div>
+    <h2>The all-in-one that didn't exist.</h2>
+    <div class="cmp">
+      <table>
+        <tr><th>&nbsp;</th><th>Price</th><th>Self-hosted</th><th>All-in-one</th><th>Forecasting</th><th>No per-host</th></tr>
+        <tr><td class="app">Better Stack</td><td>£25+/mo</td><td class="no">No · cloud</td><td class="part">Partial</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td class="app">Datadog</td><td>$$ / host</td><td class="no">No · cloud</td><td class="yes">Yes</td><td class="part">Enterprise</td><td class="no">No</td></tr>
+        <tr><td class="app">Uptime Kuma</td><td>Free</td><td class="yes">Yes</td><td class="part">Uptime + status</td><td class="no">No</td><td class="yes">Yes</td></tr>
+        <tr><td class="app">Netdata</td><td>Free / $$</td><td class="part">~ cloud tier</td><td class="part">Metrics only</td><td class="no">No</td><td class="part">~</td></tr>
+        <tr class="us"><td class="app">MON1TOR</td><td>€49–99 one-time</td><td class="yes">Yes</td><td class="yes">Yes · all of it</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+      </table>
+    </div>
+    <p class="section-lede" style="margin-top:22px;font-size:14px">The free self-hosted tools each do one slice well — you end up running and stitching several. The cloud platforms do it all, on their servers, with your data, at per-host prices that climb with your fleet. MON1TOR is the middle: all of it in one self-hosted dashboard, one flat price, with forecasting the free self-hosted tools here don't offer.</p>
+    <p class="mono" style="margin-top:10px;font-size:11px;color:var(--mut)">Competitor pricing and features as published on their sites at time of writing (Jun 2026); check each vendor for current terms. Comparison reflects default/free tiers.</p>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-label">// Pricing</div>
+    <h2>One price. Yours forever. No per-host tax.</h2>
+    <p class="section-lede">A cloud monitoring platform charges £25–hundreds <em>every month</em>, by the host. MON1TOR is a one-time purchase you run on your own infrastructure — pay once, monitor as many machines as you like, with no recurring fee.</p>
+    <div class="prices">
+      <div class="price">
+        <div class="pn">Base</div>
+        <div class="amt">€49<small> one-time</small></div><div class="per">pay once · updates for your tier included</div>
+        <ul>
+          <li class="h">Core monitoring</li>
+          <li>Unlimited machines &amp; agents</li>
+          <li>Live CPU / RAM / disk / network / load</li>
+          <li>Health score &amp; anomaly detection</li>
+          <li>Fleet heatmap &amp; dashboard views</li>
+          <li>Network scanner &amp; auto-register</li>
+          <li>Telegram alerts · 30-day history</li>
+          <li>Self-hosted — your data stays yours</li>
+        </ul>
+        <a class="btn btn-ghost" style="width:100%;justify-content:center" onclick="openCheckout('base')">Get Base · €49</a>
+      </div>
+      <div class="price pro">
+        <div class="pn">Pro <span class="pill">everything unlocked</span></div>
+        <div class="amt">€99<small> one-time</small></div><div class="per">pay once · upgrade from Base for €50</div>
+        <ul>
+          <li class="h">Everything in Base, plus</li>
+          <li><strong style="color:var(--white);font-weight:500">Days-until-full</strong> forecasting</li>
+          <li>Uptime &amp; SSL/TLS expiry monitoring</li>
+          <li>Cron / background-job heartbeats</li>
+          <li>Container insights (OOM, restarts, no-limit)</li>
+          <li>Public status pages</li>
+          <li>Alerts to 130+ channels (via Apprise) &amp; weekly PDF reports</li>
+          <li>Priority support</li>
+        </ul>
+        <a class="btn" style="width:100%;justify-content:center" onclick="openCheckout('pro')">Get Pro · €99</a>
+      </div>
+    </div>
+    <p class="cta-note">One-time purchase · 14-day money-back · billing &amp; VAT handled by Paddle</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-label">// Questions</div>
+    <h2>Good to know.</h2>
+    <div style="margin-top:36px">
+      <div class="faq-item"><h4>Where does my monitoring data go?</h4><p>Nowhere but your own infrastructure. MON1TOR runs entirely on your Docker host — metrics, alerts and logs live in your database, on your machine. The only thing that ever leaves is a one-off licence validation — never your data.</p></div>
+      <div class="faq-item"><h4>What do I need to run it?</h4><p>A box that runs Docker — a NAS, a small VPS, a cloud instance. The whole stack comes up with a single Docker Compose command, and each machine you monitor gets a lightweight agent that registers itself.</p></div>
+      <div class="faq-item"><h4>Is there really no per-host pricing?</h4><p>Correct. Base and Pro are one flat one-time price whether you watch three machines or three hundred. No tax for having more servers — that's exactly what makes the cloud platforms painful at scale.</p></div>
+      <div class="faq-item"><h4>What's the difference between Base and Pro?</h4><p>Base is complete core monitoring — every machine's metrics, health score, anomaly detection, fleet heatmap and Telegram alerts. Pro adds the predictive and outward-facing layer: days-until-full forecasting, uptime &amp; SSL checks, cron heartbeats, container insights, public status pages, 130+ alert channels (via Apprise) and weekly PDF reports. Buy Base and upgrade to Pro later for the difference (€50).</p></div>
+      <div class="faq-item"><h4>One-time, not subscription?</h4><p>One-time. Pay once — €49 Base or €99 Pro — and it's yours, on your own infrastructure, for good. No monthly fees, no per-host charge, updates for your tier included. 14-day money-back if it's not for you.</p></div>
+      <div class="faq-item"><h4>Can I start on Base and move to Pro?</h4><p>Yes. Buy Base now; whenever you want the Pro features, upgrade for the €50 difference — no need to buy Pro from scratch.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-label">// More from Perfect Paradox</div>
+    <style>@keyframes ppmarq{from{transform:translateX(0)}to{transform:translateX(-50%)}}.ppcar:hover .pptrack{animation-play-state:paused}</style><div class="ppcar" style="overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)"><div class="pptrack" style="display:flex;gap:18px;width:max-content;animation:ppmarq 55s linear infinite"><a href="https://ag3nt.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/ag3nt.png" alt="AG3NT" width="64" height="64" style="border-radius:14px"><div class="nm">AG3NT</div><div class="ds">Your AI team, on your Mac</div></a><a href="https://castly.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/castly.png" alt="Castly" width="64" height="64" style="border-radius:14px"><div class="nm">Castly</div><div class="ds">Transform text as you paste</div></a><a href="https://curtain.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/curtain.png" alt="Curtain" width="64" height="64" style="border-radius:14px"><div class="nm">Curtain</div><div class="ds">Auto do-not-disturb on share</div></a><a href="https://notebound.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/notebound.png" alt="Notebound" width="64" height="64" style="border-radius:14px"><div class="nm">Notebound</div><div class="ds">Markdown to Apple Notes</div></a><a href="https://everyfile.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/everyfile.png" alt="Everyfile" width="64" height="64" style="border-radius:14px"><div class="nm">Everyfile</div><div class="ds">Instant file search</div></a><a href="https://screenshelf.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/screenshelf.png" alt="Screenshelf" width="64" height="64" style="border-radius:14px"><div class="nm">Screenshelf</div><div class="ds">Search inside screenshots</div></a><a href="https://evergreen.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/evergreen.png" alt="Evergreen" width="64" height="64" style="border-radius:14px"><div class="nm">Evergreen</div><div class="ds">Every app up to date</div></a><a href="https://slimr.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/slimr.png" alt="Slimr" width="64" height="64" style="border-radius:14px"><div class="nm">Slimr</div><div class="ds">Compress, OCR &amp; PDF tools</div></a><a href="https://lightcap.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/lightcap.png" alt="Lightcap" width="64" height="64" style="border-radius:14px"><div class="nm">Lightcap</div><div class="ds">10-second screen GIFs</div></a><a href="https://scrubd.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/scrubd.png" alt="Scrubd" width="64" height="64" style="border-radius:14px"><div class="nm">Scrubd</div><div class="ds">Clean metadata before you share</div></a><a href="https://ag3nt.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/ag3nt.png" alt="AG3NT" width="64" height="64" style="border-radius:14px"><div class="nm">AG3NT</div><div class="ds">Your AI team, on your Mac</div></a><a href="https://castly.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/castly.png" alt="Castly" width="64" height="64" style="border-radius:14px"><div class="nm">Castly</div><div class="ds">Transform text as you paste</div></a><a href="https://curtain.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/curtain.png" alt="Curtain" width="64" height="64" style="border-radius:14px"><div class="nm">Curtain</div><div class="ds">Auto do-not-disturb on share</div></a><a href="https://notebound.perfectparadox.co.uk" style="flex:0 0 184px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px;border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--bg)"><img src="icons/notebound.png" alt="Notebound" width="64" height="64" style="border-radius:14px"><div class="nm">Notebound</div><div class="ds">Markdown to Apple Notes</div></a></div></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap fr">
+    <div class="mono">© 2026 Perfect Paradox Ltd · NI739317</div>
+    <div><a href="/legal/privacy.html">Privacy</a> · <a href="/legal/terms.html">Terms</a> · <a href="/legal/refund.html">Refund</a> · <a href="mailto:info@perfectparadox.co.uk">info@perfectparadox.co.uk</a></div>
+  </div>
+</footer>
+</div>
+
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script>
+  // Cuenta Paddle de Perfect Paradox (mismo client-side token público que las demás apps).
+  // PRICE IDs de MON1TOR (PAGO ÚNICO, igual que AG3NT): Diego los crea en Paddle y los pega aquí.
+  //   base €49, pro €99, upgrade €50 (Base→Pro, solo desde la app con ?buy=upgrade).
+  const PADDLE_TOKEN = 'live_0c45d27a78741d1285949859fcc';
+  const PRICES = {
+    base:    'pri_01kvgz7473ycfp00ath1e37ze9',
+    pro:     'pri_01kvgzaafny4vfwh60hzm61dgr',
+    upgrade: 'pri_01kvgzf8zqryt0nghnmdfrqxkt',
+  };
+  const READY = window.Paddle && !PRICES.pro.includes('PADDLE_PRICE_ID');
+  try { if (window.Paddle) Paddle.Initialize({ token: PADDLE_TOKEN }); } catch (e) {}
+  function openCheckout(tier, email){
+    const id = PRICES[tier] || PRICES.pro;
+    if (READY) {
+      const opts = { items:[{ priceId:id, quantity:1 }] };
+      if (email) opts.customer = { email };
+      Paddle.Checkout.open(opts);
+    } else {
+      window.location.href = 'mailto:info@perfectparadox.co.uk?subject=MON1TOR%20'+(tier==='base'?'Base':'Pro')+'%20—%20early%20access';
+    }
+  }
+  // El dashboard puede abrir checkout directo con ?buy=base|pro (&email=… para prerellenar).
+  (function(){
+    const q = new URLSearchParams(location.search);
+    const buy = q.get('buy');
+    if (buy && PRICES[buy]) {
+      const open = () => openCheckout(buy, q.get('email') || undefined);
+      if (window.Paddle) open(); else window.addEventListener('load', open);
+    }
+  })();
+</script>
+<script>
+  // Fondo: heatmap de flota — gradiente verde(arriba)→azul(abajo) que respira; incidentes en rojo;
+  // bajo el ratón las celdas se tiñen de rojo; toda la animación se desvanece al hacer scroll.
+  (function(){
+    const c=document.getElementById('bg'), x=c.getContext('2d');
+    const TILE=30, GAP=5;                       // px CSS
+    const TOP=[16,185,129], BOT=[56,189,248], RED=[229,72,77];   // verde arriba · azul abajo · rojo (ratón/incidente)
+    let w,h,dpr,cols,rows,cells,t=0;
+    const mouse={x:-9999,y:-9999};
+    function build(){
+      const T=(TILE+GAP)*dpr;
+      cols=Math.ceil(w/T)+1; rows=Math.ceil(h/T)+1;
+      cells=new Array(cols*rows);
+      for(let i=0;i<cells.length;i++){
+        const row=Math.floor(i/cols);
+        let fr=row/Math.max(1,rows-1) + (Math.random()-0.5)*0.16;   // posición vertical + jitter
+        fr=Math.min(1,Math.max(0,fr));
+        cells[i]={ ph:Math.random()*6.28, sp:0.08+Math.random()*0.14,
+                   lvl:0.5+Math.random()*0.45, inc:0,
+                   col:[ TOP[0]+(BOT[0]-TOP[0])*fr, TOP[1]+(BOT[1]-TOP[1])*fr, TOP[2]+(BOT[2]-TOP[2])*fr ] };
+      }
+    }
+    function resize(){
+      dpr=Math.min(window.devicePixelRatio||1,2);
+      w=c.width=innerWidth*dpr; h=c.height=innerHeight*dpr;
+      c.style.width=innerWidth+'px'; c.style.height=innerHeight+'px';
+      build();
+    }
+    addEventListener('mousemove',e=>{mouse.x=e.clientX*dpr;mouse.y=e.clientY*dpr;});
+    addEventListener('mouseout',()=>{mouse.x=mouse.y=-9999;});
+    addEventListener('scroll',()=>{ c.style.opacity=Math.max(0,1-scrollY/(innerHeight*0.85)); },{passive:true});
+    function frame(){
+      t+=0.016;
+      x.clearRect(0,0,w,h);
+      const T=(TILE+GAP)*dpr, S=TILE*dpr, R=150*dpr;
+      if(Math.random()<0.03){ const k=(Math.random()*cells.length)|0; if(cells[k]&&cells[k].inc<0.1) cells[k].inc=1; }
+      let idx=0;
+      for(let r=0;r<rows;r++){
+        for(let cx=0;cx<cols;cx++,idx++){
+          const cell=cells[idx]; if(!cell)continue;
+          const px=cx*T, py=r*T;
+          const breathe=0.5+0.5*Math.sin(t*cell.sp+cell.ph);
+          const level=cell.lvl*(0.7+0.3*breathe);
+          if(cell.inc>0) cell.inc=Math.max(0,cell.inc-0.004);
+          const mdx=px+S/2-mouse.x, mdy=py+S/2-mouse.y, md=Math.hypot(mdx,mdy);
+          const near=mouse.x>-9000?Math.max(0,1-md/R):0;
+          let rr,gg,bb,al;
+          if(cell.inc>0.12){ rr=RED[0]; gg=RED[1]; bb=RED[2]; al=0.20+cell.inc*0.55; }   // incidente
+          else {
+            const g=cell.col;                                                            // bajo el ratón → rojo
+            rr=g[0]+(RED[0]-g[0])*near; gg=g[1]+(RED[1]-g[1])*near; bb=g[2]+(RED[2]-g[2])*near;
+            al=(0.09+level*0.28)+near*0.55;
+          }
+          x.globalAlpha=Math.min(0.9,al);
+          x.fillStyle='rgb('+(rr|0)+','+(gg|0)+','+(bb|0)+')';
+          x.fillRect(px,py,S,S);
+        }
+      }
+      x.globalAlpha=1;
+      requestAnimationFrame(frame);
+    }
+    addEventListener('resize',resize);
+    resize(); frame();
+  })();
+
+  // Demos que se reproducen al entrar en viewport (en bucle mientras visibles).
+  (function(){
+    const wins = document.querySelectorAll('#work .win');
+    const replay = el => { el.classList.remove('play'); void el.offsetWidth; el.classList.add('play'); };
+    const timers = new Map();
+    const io = new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting){
+          replay(e.target);
+          timers.set(e.target, setInterval(()=>replay(e.target), 6000));
+        } else { clearInterval(timers.get(e.target)); timers.delete(e.target); }
+      });
+    }, {threshold:.4});
+    wins.forEach(w=>io.observe(w));
+  })();
+</script>
+</body>
+</html>
